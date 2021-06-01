@@ -34,12 +34,23 @@ app.get('/api/user/add', (req, res) => {
             {
                 "_id": Number,
                 "name": String,
-                "parentId": Number
+                "parent1Id": Number (Optional)
             }`);
 });
 
 app.post('/api/user/add', async (req, res) => {
-    let [userId, name, parentId] = Object.values(req.body);
-    console.log(userId);
+    const { _id, name, parent1Id } = req.body;
+    if (typeof parent1Id === 'undefined') {
+        await User.create({ _id, name });
+    } else {
+        const parent1 = await User.findById(parent1Id);
+        await User.create({
+            _id: _id,
+            name: name,
+            parent1Id: parent1Id,
+            parent2Id: parent1.parent1Id,
+            parent3Id: parent1.parent2Id
+        });
+    }
     res.redirect('/api/user/add');
 });
