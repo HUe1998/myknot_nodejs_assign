@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
 
 const WalletSchema = new Schema({
-    userId: ObjectId,
+    userId: Number,
     amount: Number,
     description: String
 });
