@@ -15,10 +15,10 @@ app.listen(4000, () => {
 /**
  * POST handler to add money in a users wallet. Send it as a JSON in this format:
  * {
- *              "userId": Number,
- *              "amount": Number,
- *              "referralEarningId": String,
- *              "description": String
+ *              "userId": Number,               // Required
+ *              "amount": Number,               // Required
+ *              "referralEarningId": String,    // Required
+ *              "description": String           // Optional
  *              
  * }
  * userId -> ID of user as saved in users collection. 
@@ -89,34 +89,19 @@ app.get('/api/wallet/add', (req, res) => {
             }`);
 });
 
-// GET handler to output the format required for POST request
-app.get('/api/user/add', (req, res) => {
-    res.send(`Use 'POST' request to add document to 'users' Collection
-
-            Use this format:
-            {
-                "_id": Number,              // Required
-                "name": String,             // Required
-                "balance": Number       // Defaults to 0
-                "parent1Id": Number
-            }
-            
-            If no parent, do not input "parent1Id" field`);
-});
-
 /**
  * POST handler to add user. Send it as a JSON in this format:
  * {
- *              "_id": Number,
- *              "name": String,
- *              "balance": Number
- *              "parent1Id": Number
+ *              "_id": Number,      // Required
+ *              "name": String,     // Required
+ *              "balance": Number   // Optional, defaults to 0
+ *              "parent1Id": Number // Optional
  *              
  * }
  * _id -> ID of user. Requires a unique number.
  * parent1Id -> ID of parent. If no parent, do not put this field in JSON.
  */
-app.post('/api/user/add', async (req, res) => {
+app.post('/api/user/create', async (req, res) => {
     const { _id, name, balance, parent1Id } = req.body;
     if (typeof parent1Id === 'undefined') {
         await User.create({ _id, name, balance });
@@ -131,22 +116,93 @@ app.post('/api/user/add', async (req, res) => {
             parent3Id: parent1.parent2Id
         });
     }
-    res.redirect('/api/user/add');
+    res.redirect('/api/user');
+});
+
+// GET handler that sends all users as a JSON response
+app.get('/api/user', async (req, res) => {
+    res.json(await User.find({}));
+});
+
+// GET handler that sends specific user as JSON provided '/id/' in url
+app.get('/api/user/:id', async (req, res) => {
+    res.json(await User.findById(req.params.id));
+});
+
+/**
+ * PUT handler to update user. Request is a JSON as:
+ * {
+ *      "name": String,         // Optional
+ *      "balance": Number,      // Optional
+ *      "parent1Id": Number,    // Optional
+ * }
+ * Only parent1Id is given because realistically if you are updating a user,
+ * the only link to other user is it's parent1. Other links to parent2 and parent3
+ * respectively are automated.
+ */
+app.put('/api/user/:id', async (req, res) => {
+    const userId = Number(req.params.id);
+    const newParent1Id = req.body.parent1Id;
+    const { parent1Id: oldParent1Id } = await User.findById(userId);
+    await User.findByIdAndUpdate(userId, req.body);
+    if ((typeof newParent1Id !== 'undefined') && (oldParent1Id !== newParent1Id)) {
+        const { parent1Id: newParent2Id, parent2Id: newParent3Id } = await User.findById(newParent1Id);
+        if (typeof newParent2Id === 'undefined') {
+            await User.findByIdAndUpdate(userId, {
+                $unset: {
+                    parent2Id: undefined,
+                    parent3Id: undefined
+                }
+            });
+            await User.updateMany({ parent1Id: userId }, {
+                parent2Id: newParent1Id, $unset: { parent3Id: undefined }
+            });
+        } else if (typeof newParent3Id === 'undefined') {
+            await User.findByIdAndUpdate(userId, {
+                parent2Id: newParent2Id, $unset: { parent3Id: undefined }
+            });
+            await User.updateMany({ parent1Id: userId },
+                { parent2Id: newParent1Id, parent3Id: newParent2Id }
+            );
+        } else {
+            await User.findByIdAndUpdate(userId,
+                { parent2Id: newParent2Id, parent3Id: newParent3Id }
+            );
+            await User.updateMany({ parent1Id: userId },
+                { parent2Id: newParent1Id, parent3Id: newParent2Id }
+            );
+        }
+        await User.updateMany({ parent2Id: userId },
+            { parent3Id: newParent1Id }
+        );
+
+    }
+    res.redirect('/api/user');
 });
 
 
-// GET handler to output the format required for POST request
-app.get('/api/referralEarning/add', (req, res) => {
-    res.send(`Use 'POST' request to add document to 'ReferralEarningModes' Collection
-            with splits in Percentage.
-
-            Use this format:
-            {
-                "_id": String,              // Required
-                "parent1Split": Number,     // Defaults to 40%
-                "parent2Split": Number,     // Defaults to 20%
-                "parent3Split": Number      // Defaults to 10%
-            }`);
+/**
+ * DELETE handler for user with ID specified in url.
+ */
+app.delete('/api/user/:id', async (req, res) => {
+    const userId = Number(req.params.id);
+    await User.findByIdAndDelete(userId);
+    // Remove mention of userId in it's children
+    await User.updateMany({ parent1Id: userId }, {
+        $unset: {
+            parent1Id: undefined,
+            parent2Id: undefined,
+            parent3Id: undefined
+        }
+    });
+    await User.updateMany({ parent2Id: userId }, {
+        $unset: {
+            parent2Id: undefined,
+            parent3Id: undefined
+        }
+    });
+    await User.updateMany({ parent3Id: userId }, { $unset: { parent3Id: undefined } });
+    res.redirect('/api/user');
 });
 
 /**
@@ -154,15 +210,21 @@ app.get('/api/referralEarning/add', (req, res) => {
  * Send it as a JSON in this format:
  * {
  *          "_id": String,              // Required
- *          "parent1Split": Number,     // Defaults to 40%
- *          "parent2Split": Number,     // Defaults to 20%
- *          "parent3Split": Number      // Defaults to 10%
+ *          "parent1Split": Number,     // Optional, Defaults to 40%
+ *          "parent2Split": Number,     // Optional, Defaults to 20%
+ *          "parent3Split": Number      // Optional, Defaults to 10%
  * }
  * _id is a String given so we could trace it back. e.g. "_id": "common"
  * could be used to find reward split designated by "common".
  * The parents split should be in percentage.
  */
-app.post('/api/referralEarning/add', async (req, res) => {
+app.post('/api/referralEarning/create', async (req, res) => {
     await ReferralEarningMode.create(req.body);
-    res.redirect('/api/referralEarning/add');
+    res.redirect('/api/referralEarning');
+});
+
+
+// GET handler to output all Referral Split modes as JSON
+app.get('/api/referralEarning', async (req, res) => {
+    res.json(await ReferralEarningMode.find({}));
 });
