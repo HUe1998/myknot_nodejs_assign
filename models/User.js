@@ -5,9 +5,9 @@ const UserSchema = new Schema({
     _id: Number,                    // UserId is _id
     name: {
         type: String,
-        default: `User ${this._id}`
+        required: true
     },
-    totalAmount: {
+    balance: {
         type: Number,
         default: 0
     },

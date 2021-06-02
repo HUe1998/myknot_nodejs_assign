@@ -10,10 +10,7 @@ const WalletSchema = new Schema({
         type: Number,
         required: true
     },
-    description: {
-        type: String,
-        default: `${this.amount} added to userID ${this.userId}`
-    }
+    description: String
 });
 
 const Wallet = mongoose.model('Wallet', WalletSchema);
