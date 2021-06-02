@@ -3,7 +3,14 @@ const Schema = mongoose.Schema;
 
 const UserSchema = new Schema({
     _id: Number,                    // UserId is _id
-    name: String,
+    name: {
+        type: String,
+        default: `User ${this._id}`
+    },
+    totalAmount: {
+        type: Number,
+        default: 0
+    },
     parent1Id: Number,
     parent2Id: Number,
     parent3Id: Number
