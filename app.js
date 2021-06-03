@@ -12,6 +12,7 @@ app.listen(4000, () => {
     console.log('App listening on port 4000');
 });
 
+
 /**
  * POST handler to add money in a users wallet. Send it as a JSON in this format:
  * {
@@ -25,7 +26,7 @@ app.listen(4000, () => {
  * amount -> amount added to wallet.
  * referralEarningId -> ID of referral earning split to be used for it's parents.
  */
-app.post('/api/wallet/add', async (req, res) => {
+app.post('/api/wallet/create', async (req, res) => {
     const { userId, amount, referralEarningId, description } = req.body;
     const { balance, parent1Id, parent2Id, parent3Id }
         = await User.findById(userId);
@@ -72,21 +73,23 @@ app.post('/api/wallet/add', async (req, res) => {
             { balance: parent3balance + parent3Amount }
         );
     }
-    // Redirect to same homepage so GET handler could give response.
-    res.redirect('/api/wallet/add');
+    // Redirect to user wallet's homepage so GET handler could give response.
+    res.redirect('/api/wallet');
 });
 
-// GET handler to output the format required for POST request
-app.get('/api/wallet/add', (req, res) => {
-    res.send(`Use 'POST' request to add document to 'wallets' Collection
+// GET handler that sends all wallet addition as a JSON response
+app.get('/api/wallet', async (req, res) => {
+    res.json(await Wallet.find({}));
+});
 
-            Use this format:
-            {
-                "userId": Number,               // Required
-                "amount": Number,               // Required
-                "referralEarningId": String,    // Required
-                "description": String
-            }`);
+// GET handler that sends all wallet addition of a specific user
+app.get('/api/wallet/user/:id', async (req, res) => {
+    res.json(await Wallet.find({ userId: Number(req.params.id) }));
+});
+
+// GET handler to respond with JSON data of specific wallet addition.
+app.get('/api/wallet/:id', async (req, res) => {
+    res.json(await Wallet.findById(req.params.id));
 });
 
 /**
@@ -180,10 +183,7 @@ app.put('/api/user/:id', async (req, res) => {
     res.redirect('/api/user');
 });
 
-
-/**
- * DELETE handler for user with ID specified in url.
- */
+// DELETE handler for user with ID specified in url.
 app.delete('/api/user/:id', async (req, res) => {
     const userId = Number(req.params.id);
     await User.findByIdAndDelete(userId);
@@ -205,6 +205,7 @@ app.delete('/api/user/:id', async (req, res) => {
     res.redirect('/api/user');
 });
 
+
 /**
  * POST request to add a Reward Split Mode for parents. 
  * Send it as a JSON in this format:
@@ -224,7 +225,31 @@ app.post('/api/referralEarning/create', async (req, res) => {
 });
 
 
-// GET handler to output all Referral Split modes as JSON
+// GET handler to output all Referral Earning modes as JSON
 app.get('/api/referralEarning', async (req, res) => {
     res.json(await ReferralEarningMode.find({}));
+});
+
+// GET handler to output a specific Referral Earning mode using url
+app.get('/api/referralEarning/:id', async (req, res) => {
+    res.json(await ReferralEarningMode.findById(req.params.id));
+});
+
+/**
+ * PUT handler to update a Referral Earning Mode. Request as JSON:
+ * {
+ *      "parent1Split": Number,     // Optional
+ *      "parent2Split": Number,     // Optional
+ *      "parent3Split": Number      // Optional
+ * }
+ */
+app.put('/api/referralEarning/:id', async (req, res) => {
+    await ReferralEarningMode.findByIdAndUpdate(req.params.id, req.body);
+    res.redirect('/api/referralEarning');
+});
+
+// DELETE handler to delete Referral Earning Mode specified by url
+app.delete('/api/referralEarning/:id', async (req, res) => {
+    await ReferralEarningMode.findByIdAndDelete(req.params.id, req.body);
+    res.redirect('/api/referralEarning');
 });
