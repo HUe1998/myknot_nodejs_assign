@@ -1,4 +1,4 @@
-# Internship Assignment from MyKnot
+# Multi Level Referral System API
 
 Create required API usign Node.js & Express.js with MongoDB as backend.<br/>
 See app in action with the below video link:<br/>
